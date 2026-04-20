@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SCADA Issue Tracker</title>
+
+  <style>
+    body { font-family: Arial; margin: 0; background: #f4f6f9; }
+
+    header {
+      background: #1f2d3d;
+      color: white;
+      padding: 15px;
+      text-align: center;
+      font-size: 24px;
+    }
+
+    .container { padding: 20px; }
+
+    .flex { display: flex; flex-wrap: wrap; gap: 15px; }
+
+    .card {
+      background: white;
+      padding: 15px;
+      border-radius: 10px;
+      width: 220px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      cursor: pointer;
+    }
+
+    .issue-card { width: 360px; }
+
+    button {
+      padding: 6px 10px;
+      margin: 4px 2px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .btn-primary { background: #3498db; color: white; }
+    .btn-danger { background: #e74c3c; color: white; }
+    .btn-success { background: #2ecc71; color: white; }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 6px;
+      margin: 6px 0;
+    }
+
+    .hidden { display: none; }
+
+    .status {
+      padding: 3px 8px;
+      border-radius: 5px;
+      color: white;
+      font-size: 12px;
+      display: inline-block;
+      margin-top: 5px;
+    }
+
+    .inprogress { background: orange; }
+    .completed { background: green; }
+    .notcompleted { background: red; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 12px;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 5px;
+    }
+
+    #statsBar {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    #statsBar .card {
+      width: 180px;
+      text-align: center;
+      font-size: 16px;
+      cursor: default;
+    }
+
+    .modal {
+      position: fixed;
+      top:0;
+      left:0;
+      width:100%;
+      height:100%;
+      background:rgba(0,0,0,0.5);
+      display:none;
+      justify-content:center;
+      align-items:center;
+    }
+
+    .modal-content {
+      background:white;
+      padding:20px;
+      border-radius:10px;
+      width:300px;
+    }
+
+    /* LOGIN */
+    #loginScreen{
+      position:fixed;
+      top:0;
+      left:0;
+      width:100%;
+      height:100%;
+      background:#1f2d3d;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      color:white;
+      flex-direction:column;
+    }
+
+    #loginBox{
+      background:white;
+      color:black;
+      padding:20px;
+      border-radius:10px;
+      width:280px;
+    }
+  </style>
+</head>
+
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen">
+  <h2>SCADA Login</h2>
+  <div id="loginBox">
+    <select id="roleSelect">
+      <option value="admin">Admin</option>
+      <option value="viewer">Viewer</option>
+    </select>
+    <input id="password" type="password" placeholder="Enter Password">
+    <button class="btn-primary" onclick="login()">Login</button>
+  </div>
+</div>
+
+<header>SCADA Issue Tracker Dashboard</header>
+
+<div class="container">
+
+  <div id="statsBar">
+    <div class="card">Total: <span id="totalCount">0</span></div>
+    <div class="card">Completed: <span id="completedCount">0</span></div>
+    <div class="card">In Progress: <span id="progressCount">0</span></div>
+    <div class="card">Not Completed: <span id="notCompletedCount">0</span></div>
+  </div>
+
+  <div id="siteSection">
+    <h2>Sites</h2>
+    <input id="siteInput" placeholder="Enter site name">
+    <button class="btn-primary" onclick="addSite()">Add Site</button>
+    <div class="flex" id="siteList"></div>
+  </div>
+
+  <div id="issueSection" class="hidden">
+    <button onclick="goBack()">⬅ Back</button>
+    <h2 id="siteTitle"></h2>
+
+    <button class="btn-primary" onclick="openIssueModal()">Add Issue</button>
+
+    <select onchange="filterIssues(this.value)">
+      <option value="all">All</option>
+      <option value="InProgress">In Progress</option>
+      <option value="Completed">Completed</option>
+      <option value="NotCompleted">Not Completed</option>
+    </select>
+
+    <div class="flex" id="issueList"></div>
+  </div>
+
+</div>
+
+<!-- MODALS (unchanged) -->
+<div class="modal" id="issueModal">
+  <div class="modal-content">
+    <h3>Add Issue</h3>
+    <input id="issueDate" type="date">
+    <textarea id="issueDesc"></textarea>
+    <select id="issueStatus">
+      <option>InProgress</option>
+      <option>Completed</option>
+      <option>NotCompleted</option>
+    </select>
+
+    <button class="btn-success" onclick="saveIssue()">Save</button>
+    <button onclick="closeIssueModal()">Cancel</button>
+  </div>
+</div>
+
+<div class="modal" id="updateModal">
+  <div class="modal-content">
+    <h3 id="updateTitle">Update</h3>
+    <input type="date" id="updateDate">
+    <textarea id="updateDesc"></textarea>
+
+    <button class="btn-success" onclick="saveUpdate()">Save</button>
+    <button onclick="closeUpdateModal()">Cancel</button>
+  </div>
+</div>
+
+<div class="modal" id="dateModal">
+  <div class="modal-content">
+    <h3>Change Issue Date</h3>
+    <input type="date" id="editIssueDate">
+
+    <button class="btn-success" onclick="saveIssueDate()">Save</button>
+    <button onclick="closeDateModal()">Cancel</button>
+  </div>
+</div>
+
+<script>
+let sites = JSON.parse(localStorage.getItem("sites")) || {};
+let currentSite = "";
+let filter = "all";
+
+let updateIssueIndex = null;
+let updateEditIndex = null;
+let editIssueIndex = null;
+
+let currentRole = "";
+
+/* LOGIN */
+function login(){
+  let pass = password.value;
+  let role = roleSelect.value;
+
+  if(role==="admin" && pass==="Sujith@123"){
+    currentRole="admin";
+  }
+  else if(role==="viewer" && pass==="user@123"){
+    currentRole="viewer";
+  }
+  else{
+    alert("Wrong credentials");
+    return;
+  }
+
+  loginScreen.style.display="none";
+}
+
+/* PERMISSION CHECK */
+function isAdmin(){
+  if(currentRole!=="admin"){
+    alert("Viewer cannot modify data");
+    return false;
+  }
+  return true;
+}
+
+/* SAVE */
+function saveData(){
+  localStorage.setItem("sites",JSON.stringify(sites));
+  updateStats();
+}
+
+/* STATS */
+function updateStats(){
+  let t=0,c=0,p=0,n=0;
+
+  Object.values(sites).forEach(list=>{
+    list.forEach(i=>{
+      t++;
+      if(i.status==="Completed") c++;
+      else if(i.status==="InProgress") p++;
+      else n++;
+    });
+  });
+
+  totalCount.innerText=t;
+  completedCount.innerText=c;
+  progressCount.innerText=p;
+  notCompletedCount.innerText=n;
+}
+
+/* SITE */
+function addSite(){
+  if(!isAdmin()) return;
+
+  let n=siteInput.value.trim();
+  if(!n) return;
+  if(sites[n]) return alert("Exists");
+
+  sites[n]=[];
+  saveData();
+  renderSites();
+  siteInput.value="";
+}
+
+function deleteSite(n){
+  if(!isAdmin()) return;
+
+  if(!confirm()) return;
+  delete sites[n];
+  saveData();
+  renderSites();
+}
+
+function renderSites(){
+  siteList.innerHTML="";
+  Object.keys(sites).forEach(s=>{
+    let d=document.createElement("div");
+    d.className="card";
+    d.innerHTML=`<h3>${s}</h3>
+      <button onclick="event.stopPropagation();deleteSite('${s}')">Delete</button>`;
+    d.onclick=()=>openSite(s);
+    siteList.appendChild(d);
+  });
+}
+
+/* NAV */
+function openSite(s){
+  currentSite=s;
+  siteTitle.innerText=s;
+  siteSection.classList.add("hidden");
+  issueSection.classList.remove("hidden");
+  renderIssues();
+}
+
+function goBack(){
+  siteSection.classList.remove("hidden");
+  issueSection.classList.add("hidden");
+}
+
+/* ISSUE */
+function openIssueModal(){
+  if(!isAdmin()) return;
+  issueModal.style.display="flex";
+}
+
+function closeIssueModal(){
+  issueModal.style.display="none";
+}
+
+function saveIssue(){
+  if(!isAdmin()) return;
+
+  sites[currentSite].push({
+    date:issueDate.value,
+    desc:issueDesc.value,
+    status:issueStatus.value,
+    updates:[],
+    showUpdates:false
+  });
+
+  saveData();
+  closeIssueModal();
+  renderIssues();
+}
+
+/* UPDATE */
+function addUpdate(i){
+  if(!isAdmin()) return;
+
+  updateIssueIndex=i;
+  updateEditIndex=null;
+  updateModal.style.display="flex";
+}
+
+function editUpdate(i,ui){
+  if(!isAdmin()) return;
+
+  updateIssueIndex=i;
+  updateEditIndex=ui;
+  updateModal.style.display="flex";
+}
+
+function saveUpdate(){
+  if(!isAdmin()) return;
+
+  let issue=sites[currentSite][updateIssueIndex];
+
+  if(updateEditIndex===null)
+    issue.updates.push({date:updateDate.value,desc:updateDesc.value});
+  else
+    issue.updates[updateEditIndex]={date:updateDate.value,desc:updateDesc.value};
+
+  saveData();
+  closeUpdateModal();
+  renderIssues();
+}
+
+function closeUpdateModal(){
+  updateModal.style.display="none";
+}
+
+/* STATUS */
+function changeStatus(i,v){
+  if(!isAdmin()) return;
+  sites[currentSite][i].status=v;
+  saveData();
+  renderIssues();
+}
+
+/* DELETE ISSUE */
+function deleteIssue(i){
+  if(!isAdmin()) return;
+
+  if(!confirm()) return;
+  sites[currentSite].splice(i,1);
+  saveData();
+  renderIssues();
+}
+
+/* FILTER */
+function filterIssues(v){
+  filter=v;
+  renderIssues();
+}
+
+/* DATE */
+function openDateModal(i){
+  if(!isAdmin()) return;
+
+  editIssueIndex=i;
+  editIssueDate.value=sites[currentSite][i].date;
+  dateModal.style.display="flex";
+}
+
+function saveIssueDate(){
+  if(!isAdmin()) return;
+
+  sites[currentSite][editIssueIndex].date=editIssueDate.value;
+  saveData();
+  closeDateModal();
+  renderIssues();
+}
+
+function closeDateModal(){
+  dateModal.style.display="none";
+}
+
+/* RENDER */
+function renderIssues(){
+  issueList.innerHTML="";
+
+  sites[currentSite].forEach((i,idx)=>{
+    if(filter!=="all" && i.status!==filter) return;
+
+    let div=document.createElement("div");
+    div.className="card issue-card";
+
+    div.innerHTML=`
+      <h4>${i.desc}</h4>
+      <p>${i.date}</p>
+
+      <select ${currentRole!=="admin"?"disabled":""}
+        onchange="changeStatus(${idx},this.value)">
+        <option ${i.status==="InProgress"?"selected":""}>InProgress</option>
+        <option ${i.status==="Completed"?"selected":""}>Completed</option>
+        <option ${i.status==="NotCompleted"?"selected":""}>NotCompleted</option>
+      </select>
+
+      <button onclick="addUpdate(${idx})">Add Update</button>
+      <button onclick="deleteIssue(${idx})">Delete</button>
+    `;
+
+    issueList.appendChild(div);
+  });
+}
+
+/* INIT */
+renderSites();
+updateStats();
+</script>
+
+</body>
+</html>
